@@ -1,6 +1,6 @@
-package com.ted.shapeless.playground.csvencoder
+package com.ted.shapeless.playground.csv
 
-import shapeless.{::, HList, HNil}
+import shapeless.{Generic, ::, HList, HNil}
 
 trait CsvEncoder[T] {
   def encode(value: T): List[String]
@@ -24,4 +24,11 @@ object CsvEncoder {
                                              ): CsvEncoder[H :: T] = createEncoder {
     case head :: tail => headCsvEncoder.encode(head) ++ tailCsvEncoder.encode(tail)
   }
+
+  implicit def genericCsvEncoder[T, R](
+                                     implicit
+                                     gen: Generic.Aux[T, R] /*Generic[T] {type Repr = R}*/ ,
+                                     reprCsvEncoder: CsvEncoder[R]
+                                   ): CsvEncoder[T] =
+  createEncoder(value => reprCsvEncoder.encode(gen.to(value)))
 }
