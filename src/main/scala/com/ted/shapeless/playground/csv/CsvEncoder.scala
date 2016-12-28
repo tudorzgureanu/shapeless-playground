@@ -7,6 +7,8 @@ trait CsvEncoder[T] {
 }
 
 object CsvEncoder {
+  def apply[T](implicit csvEncoder: CsvEncoder[T]): CsvEncoder[T] = csvEncoder
+
   def createEncoder[T](func: T => List[String]): CsvEncoder[T] =
       new CsvEncoder[T] {
         override def encode(value: T): List[String] = func(value)
@@ -20,20 +22,20 @@ object CsvEncoder {
   implicit val hNilCsvEncoder: CsvEncoder[HNil] = createEncoder(_ => Nil)
   implicit def hListCsvEncoder[H, T <: HList](
                                                implicit
-                                               hCsvEncoder: CsvEncoder[H],
+                                               hCsvEncoder: Lazy[CsvEncoder[H]],
                                                tCsvEncoder: CsvEncoder[T]
                                              ): CsvEncoder[H :: T] = createEncoder {
-    case head :: tail => hCsvEncoder.encode(head) ++ tCsvEncoder.encode(tail)
+    case head :: tail => hCsvEncoder.value.encode(head) ++ tCsvEncoder.encode(tail)
   }
 
 
   implicit val cNilCsvEncoder: CsvEncoder[CNil] = createEncoder(cnil => throw new Exception("Impossible"))
   implicit def coproductCsvEncoder[H, T <: Coproduct](
                                       implicit
-                                      hCsvEncoder: CsvEncoder[H],
+                                      hCsvEncoder: Lazy[CsvEncoder[H]],
                                       tCsvEncoder: CsvEncoder[T]
                                     ): CsvEncoder[H :+: T] = createEncoder {
-    case Inl(h) => hCsvEncoder.encode(h)
+    case Inl(h) => hCsvEncoder.value.encode(h)
     case Inr(t) => tCsvEncoder.encode(t)
   }
 
@@ -41,7 +43,7 @@ object CsvEncoder {
     implicit def genericCsvEncoder[T, R](
                                      implicit
                                      gen: Generic.Aux[T, R] /*Generic[T] {type Repr = R}*/ ,
-                                     reprCsvEncoder: CsvEncoder[R]
+                                     reprCsvEncoder: Lazy[CsvEncoder[R]]
                                    ): CsvEncoder[T] =
-  createEncoder(value => reprCsvEncoder.encode(gen.to(value)))
+  createEncoder(value => reprCsvEncoder.value.encode(gen.to(value)))
 }
