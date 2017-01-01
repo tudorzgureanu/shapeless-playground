@@ -47,7 +47,20 @@ object JsonEncoder {
     }
   }
 
-  implicit def genericObjectEncoder[T, Repr <: HList](
+  implicit val cNilEncoder: JsonObjectEncoder[CNil] = createObjectEncoder(_ => throw new Exception("Never in this life!"))
+  implicit def coproductEncoder[K <: Symbol, H, T <: Coproduct](
+                                                                implicit
+                                                                witness: Witness.Aux[K],
+                                                                hEnc: Lazy[JsonEncoder[H]],
+                                                                tEnc: JsonObjectEncoder[T]
+                                                           ): JsonObjectEncoder[FieldType[K, H] :+: T] = {
+    createObjectEncoder {
+      case Inl(h) => JsonObject(List(witness.value.name -> hEnc.value.encode(h)))
+      case Inr(t) => tEnc.encode(t)
+    }
+  }
+
+  implicit def genericObjectEncoder[T, Repr](
                                            implicit
                                            labelledGeneric: LabelledGeneric.Aux[T, Repr],
                                            enc: Lazy[JsonObjectEncoder[Repr]]
